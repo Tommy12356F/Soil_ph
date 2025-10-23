@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Soil Health Index Calculator</title>
   <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@100..900&display=swap" rel="stylesheet" />
   <style>
     body {
@@ -24,7 +25,6 @@
       transition: all 0.3s ease;
     }
 
-    /* --- Improved Input Styling --- */
     .input-style {
       width: 100%;
       padding: 14px;
@@ -37,14 +37,12 @@
       outline: none;
     }
 
-    /* Modern placeholder style */
     .input-style::placeholder {
       color: rgba(255, 255, 255, 0.45);
       letter-spacing: 0.3px;
       transition: all 0.3s ease;
     }
 
-    /* Glow + placeholder movement */
     .input-style:focus {
       border-color: #48bb78;
       box-shadow: 0 0 6px rgba(72, 187, 120, 0.3);
@@ -73,6 +71,14 @@
       font-size: 4rem;
       line-height: 1;
     }
+
+    .frosty-btn {
+      @apply w-full p-4 font-bold text-xl rounded-xl bg-green-600 hover:bg-green-700 transition duration-300 shadow-xl shadow-green-600/30 active:scale-[.99];
+    }
+
+    .secondary-btn {
+      @apply px-4 py-2 rounded-lg bg-gray-700/80 hover:bg-gray-600/90 transition duration-300 text-sm font-medium;
+    }
   </style>
 </head>
 <body class="antialiased">
@@ -95,24 +101,21 @@
         Please fill in all fields with valid numbers.
       </p>
 
-      <button
-        id="computeBtn"
-        class="w-full mt-10 p-4 font-bold text-xl rounded-xl bg-green-600 hover:bg-green-700 transition duration-300 shadow-xl shadow-green-600/30 active:scale-[.99]"
-      >
-        Compute Results
-      </button>
+      <button id="computeBtn" class="frosty-btn mt-10">Compute Results</button>
     </div>
   </div>
 
   <!-- Page 2 -->
   <div id="results-page" class="hidden min-h-screen text-white p-6 md:p-12">
     <div class="max-w-7xl mx-auto">
-      <button id="backBtn" class="mb-8 px-4 py-2 rounded-lg bg-gray-700/80 hover:bg-gray-600/90 transition duration-300 text-sm font-medium">
-        &larr; Recalculate
-      </button>
-      <h1 class="text-4xl font-extrabold text-white mb-8">
-        Soil Health Analysis
-      </h1>
+      <div class="flex flex-wrap items-center justify-between mb-8">
+        <button id="backBtn" class="secondary-btn">&larr; Recalculate</button>
+        <button id="pdfBtn" class="px-5 py-2 bg-green-600 hover:bg-green-700 text-white font-semibold rounded-lg shadow-md shadow-green-600/40 transition duration-300">
+          ⬇ Download PDF
+        </button>
+      </div>
+
+      <h1 class="text-4xl font-extrabold text-white mb-8">Soil Health Analysis</h1>
 
       <div class="flex flex-col lg:flex-row space-y-8 lg:space-y-0 lg:space-x-8">
         <div class="lg:w-1/2 w-full glass-card p-8 flex flex-col items-center justify-center">
@@ -135,7 +138,7 @@
         <div class="lg:w-1/2 w-full flex flex-col space-y-8">
           <div class="glass-card p-6 flex-1 min-h-[250px] flex flex-col">
             <h3 class="text-xl font-semibold text-green-300 mb-3 border-b border-gray-600 pb-2">Soil Amendment Recommendations</h3>
-            <p class="text-white/80 text-sm leading-relaxed flex-1">
+            <p id="rec-text" class="text-white/80 text-sm leading-relaxed flex-1">
               Apply organic compost or balanced fertilizers to improve soil fertility and structure.
             </p>
           </div>
@@ -156,10 +159,14 @@
     const resultsPage = document.getElementById("results-page");
     const computeBtn = document.getElementById("computeBtn");
     const backBtn = document.getElementById("backBtn");
+    const pdfBtn = document.getElementById("pdfBtn");
     const shiScoreDisplay = document.getElementById("shi-score-display");
     const shiProgress = document.getElementById("shi-progress");
     const shiStatusText = document.getElementById("shi-status-text");
     const errorMessage = document.getElementById("error-message");
+    const recText = document.getElementById("rec-text");
+
+    let lastInputs = {};
 
     const CIRCUMFERENCE = 2 * Math.PI * 45;
 
@@ -200,12 +207,15 @@
       if (scoreNum <= 33) {
         color = "#F87171";
         status = "Poor Health";
+        recText.textContent = "Soil health is poor. Apply organic compost, gypsum (if saline), and balanced NPK fertilizer.";
       } else if (scoreNum <= 66) {
         color = "#FBBF24";
         status = "Moderate Health";
+        recText.textContent = "Soil is moderately healthy. Maintain nutrient balance and ensure good drainage.";
       } else {
         color = "#48BB78";
         status = "Excellent Health";
+        recText.textContent = "Soil health is excellent. Continue sustainable farming practices and periodic monitoring.";
       }
 
       shiProgress.style.stroke = color;
@@ -225,9 +235,10 @@
       }
       errorMessage.classList.add("hidden");
 
+      lastInputs = { salinity, ph, n, p, k };
+
       const shiScore = calculateSHI(salinity, ph, n, p, k);
       updateSpeedometer(shiScore);
-
       homepage.classList.add("hidden");
       resultsPage.classList.remove("hidden");
     }
@@ -237,8 +248,53 @@
       homepage.classList.remove("hidden");
     }
 
+    async function handlePDF() {
+      const { jsPDF } = window.jspdf;
+      const doc = new jsPDF();
+      const score = shiScoreDisplay.textContent;
+      const status = shiStatusText.textContent;
+      const recommendation = recText.textContent;
+
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(20);
+      doc.text("Soil Health Index Report", 20, 25);
+      doc.setFontSize(12);
+      doc.setFont("helvetica", "normal");
+
+      doc.text("Input Parameters:", 20, 40);
+      doc.setDrawColor(0);
+      doc.setFillColor(230, 255, 230);
+
+      const tableStartY = 46;
+      const col1 = 20;
+      const col2 = 70;
+      const col3 = 150;
+
+      const inputs = [
+        ["Salinity (dS/m)", lastInputs.salinity],
+        ["pH", lastInputs.ph],
+        ["Nitrogen (mg/kg)", lastInputs.n],
+        ["Phosphorus (mg/kg)", lastInputs.p],
+        ["Potassium (mg/kg)", lastInputs.k]
+      ];
+
+      inputs.forEach((row, i) => {
+        doc.text(row[0], col1, tableStartY + i * 8);
+        doc.text(": " + row[1], col2, tableStartY + i * 8);
+      });
+
+      doc.text(`\nSHI Score: ${score}`, 20, tableStartY + 55);
+      doc.text(`Health Status: ${status}`, 20, tableStartY + 65);
+      doc.text("Recommendations:", 20, tableStartY + 80);
+      doc.text(doc.splitTextToSize(recommendation, 170), 20, tableStartY + 90);
+
+      doc.text("Generated by Soil Health Index Calculator", 20, 270);
+      doc.save("Soil_Health_Report.pdf");
+    }
+
     computeBtn.addEventListener("click", handleCompute);
     backBtn.addEventListener("click", handleBack);
+    pdfBtn.addEventListener("click", handlePDF);
     updateSpeedometer("0.0");
   </script>
 </body>
