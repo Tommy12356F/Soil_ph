@@ -1,0 +1,245 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Soil Health Index Calculator</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@100..900&display=swap" rel="stylesheet" />
+  <style>
+    body {
+      background-color: #1a1a1a;
+      color: #e5e5e5;
+      font-family: "Inter", sans-serif;
+      min-height: 100vh;
+    }
+
+    .glass-card {
+      background: rgba(40, 40, 40, 0.8);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.3);
+      border-radius: 20px;
+      transition: all 0.3s ease;
+    }
+
+    /* --- Improved Input Styling --- */
+    .input-style {
+      width: 100%;
+      padding: 14px;
+      border-radius: 12px;
+      border: 1px solid rgba(255, 255, 255, 0.05);
+      background: rgba(255, 255, 255, 0.05);
+      color: #fff;
+      font-size: 1rem;
+      transition: all 0.25s ease;
+      outline: none;
+    }
+
+    /* Modern placeholder style */
+    .input-style::placeholder {
+      color: rgba(255, 255, 255, 0.45);
+      letter-spacing: 0.3px;
+      transition: all 0.3s ease;
+    }
+
+    /* Glow + placeholder movement */
+    .input-style:focus {
+      border-color: #48bb78;
+      box-shadow: 0 0 6px rgba(72, 187, 120, 0.3);
+      background: rgba(255, 255, 255, 0.08);
+    }
+
+    .input-style:focus::placeholder,
+    .input-style:not(:placeholder-shown)::placeholder {
+      color: rgba(144, 238, 144, 0.65);
+      transform: translateY(-2px);
+      letter-spacing: 0.6px;
+    }
+
+    #speedometer-container {
+      position: relative;
+      width: 256px;
+      height: 256px;
+      margin: 0 auto;
+    }
+
+    #shi-progress {
+      transition: stroke-dashoffset 1s ease-in-out;
+    }
+
+    #shi-score-display {
+      font-size: 4rem;
+      line-height: 1;
+    }
+  </style>
+</head>
+<body class="antialiased">
+  <!-- Page 1 -->
+  <div id="homepage" class="flex items-center justify-center min-h-screen p-4">
+    <div class="glass-card p-8 sm:p-10 w-full max-w-lg">
+      <h1 class="text-4xl font-extrabold text-green-400 mb-8 text-center tracking-tight">
+        Soil Health Index Input
+      </h1>
+
+      <div class="space-y-5">
+        <input type="number" id="salinity" placeholder="1) Salinity (dS/m, e.g., 2.5)" class="input-style" step="0.1" required />
+        <input type="number" id="ph" placeholder="2) pH (0-14, e.g., 6.5)" class="input-style" step="0.1" required />
+        <input type="number" id="n" placeholder="3) Nitrogen (N) (mg/kg, e.g., 150)" class="input-style" required />
+        <input type="number" id="p" placeholder="4) Phosphorus (P) (mg/kg, e.g., 40)" class="input-style" required />
+        <input type="number" id="k" placeholder="5) Potassium (K) (mg/kg, e.g., 220)" class="input-style" required />
+      </div>
+
+      <p id="error-message" class="text-red-400 mt-4 hidden text-center">
+        Please fill in all fields with valid numbers.
+      </p>
+
+      <button
+        id="computeBtn"
+        class="w-full mt-10 p-4 font-bold text-xl rounded-xl bg-green-600 hover:bg-green-700 transition duration-300 shadow-xl shadow-green-600/30 active:scale-[.99]"
+      >
+        Compute Results
+      </button>
+    </div>
+  </div>
+
+  <!-- Page 2 -->
+  <div id="results-page" class="hidden min-h-screen text-white p-6 md:p-12">
+    <div class="max-w-7xl mx-auto">
+      <button id="backBtn" class="mb-8 px-4 py-2 rounded-lg bg-gray-700/80 hover:bg-gray-600/90 transition duration-300 text-sm font-medium">
+        &larr; Recalculate
+      </button>
+      <h1 class="text-4xl font-extrabold text-white mb-8">
+        Soil Health Analysis
+      </h1>
+
+      <div class="flex flex-col lg:flex-row space-y-8 lg:space-y-0 lg:space-x-8">
+        <div class="lg:w-1/2 w-full glass-card p-8 flex flex-col items-center justify-center">
+          <h2 class="text-2xl font-semibold mb-6 text-green-400 text-center">
+            Soil Health Index (SHI) Score
+          </h2>
+
+          <div id="speedometer-container" class="w-64 h-64 flex items-center justify-center">
+            <svg viewBox="0 0 100 100" class="absolute w-full h-full transform -rotate-90">
+              <circle cx="50" cy="50" r="45" fill="none" stroke="#2D3748" stroke-width="6" stroke-dasharray="282.74" stroke-dashoffset="0"></circle>
+              <circle id="shi-progress" cx="50" cy="50" r="45" fill="none" stroke="#48BB78" stroke-width="8" stroke-dasharray="282.74" stroke-dashoffset="282.74" stroke-linecap="round"></circle>
+            </svg>
+            <div class="text-center">
+              <p id="shi-score-display" class="font-extrabold text-white">0.0</p>
+              <p id="shi-status-text" class="text-lg text-gray-400 mt-2">Health Status</p>
+            </div>
+          </div>
+        </div>
+
+        <div class="lg:w-1/2 w-full flex flex-col space-y-8">
+          <div class="glass-card p-6 flex-1 min-h-[250px] flex flex-col">
+            <h3 class="text-xl font-semibold text-green-300 mb-3 border-b border-gray-600 pb-2">Soil Amendment Recommendations</h3>
+            <p class="text-white/80 text-sm leading-relaxed flex-1">
+              Apply organic compost or balanced fertilizers to improve soil fertility and structure.
+            </p>
+          </div>
+
+          <div class="glass-card p-6 flex-1 min-h-[250px] flex flex-col">
+            <h3 class="text-xl font-semibold text-green-300 mb-3 border-b border-gray-600 pb-2">Detailed Soil Component Analysis</h3>
+            <p class="text-white/80 text-sm leading-relaxed flex-1">
+              Monitor NPK ratios and salinity levels regularly to ensure optimal crop growth and soil sustainability.
+            </p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const homepage = document.getElementById("homepage");
+    const resultsPage = document.getElementById("results-page");
+    const computeBtn = document.getElementById("computeBtn");
+    const backBtn = document.getElementById("backBtn");
+    const shiScoreDisplay = document.getElementById("shi-score-display");
+    const shiProgress = document.getElementById("shi-progress");
+    const shiStatusText = document.getElementById("shi-status-text");
+    const errorMessage = document.getElementById("error-message");
+
+    const CIRCUMFERENCE = 2 * Math.PI * 45;
+
+    function calculateSHI(salinity, pH, N, P, K) {
+      const maxN = 250;
+      const maxP = 50;
+      const maxK = 300;
+      const maxSalinity = 8;
+      const idealpH = 6.5;
+      const N_Weight = 30;
+      const P_Weight = 20;
+      const K_Weight = 30;
+      const Salinity_Weight = 10;
+      const pH_Weight = 10;
+
+      const N_Score = Math.min(1, N / maxN) * N_Weight;
+      const P_Score = Math.min(1, P / maxP) * P_Weight;
+      const K_Score = Math.min(1, K / maxK) * K_Weight;
+      const Sal_Penalty = Math.min(1, salinity / maxSalinity) * Salinity_Weight;
+      const pH_Deviation = Math.abs(pH - idealpH);
+      const pH_Penalty = Math.min(1, pH_Deviation / 2.5) * pH_Weight;
+
+      let shi = N_Score + P_Score + K_Score + 10 - Sal_Penalty - pH_Penalty;
+      shi = Math.min(100, Math.max(0, shi));
+      return shi.toFixed(1);
+    }
+
+    function updateSpeedometer(score) {
+      const scoreNum = parseFloat(score);
+      const percentage = scoreNum / 100;
+      const offset = CIRCUMFERENCE - percentage * CIRCUMFERENCE;
+      shiProgress.style.strokeDashoffset = offset;
+      shiScoreDisplay.textContent = score;
+
+      let color = "";
+      let status = "";
+
+      if (scoreNum <= 33) {
+        color = "#F87171";
+        status = "Poor Health";
+      } else if (scoreNum <= 66) {
+        color = "#FBBF24";
+        status = "Moderate Health";
+      } else {
+        color = "#48BB78";
+        status = "Excellent Health";
+      }
+
+      shiProgress.style.stroke = color;
+      shiStatusText.textContent = status;
+    }
+
+    function handleCompute() {
+      const salinity = parseFloat(document.getElementById("salinity").value);
+      const ph = parseFloat(document.getElementById("ph").value);
+      const n = parseFloat(document.getElementById("n").value);
+      const p = parseFloat(document.getElementById("p").value);
+      const k = parseFloat(document.getElementById("k").value);
+
+      if (isNaN(salinity) || isNaN(ph) || isNaN(n) || isNaN(p) || isNaN(k)) {
+        errorMessage.classList.remove("hidden");
+        return;
+      }
+      errorMessage.classList.add("hidden");
+
+      const shiScore = calculateSHI(salinity, ph, n, p, k);
+      updateSpeedometer(shiScore);
+
+      homepage.classList.add("hidden");
+      resultsPage.classList.remove("hidden");
+    }
+
+    function handleBack() {
+      resultsPage.classList.add("hidden");
+      homepage.classList.remove("hidden");
+    }
+
+    computeBtn.addEventListener("click", handleCompute);
+    backBtn.addEventListener("click", handleBack);
+    updateSpeedometer("0.0");
+  </script>
+</body>
+</html>
